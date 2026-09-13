@@ -1,6 +1,10 @@
 package application
 
 import (
+	"encoding/base64"
+	"errors"
+	"fmt"
+	"net/http"
 	"strings"
 
 	attachmentpkg "github.com/felinics/memoh/internal/attachment"
@@ -152,6 +156,64 @@ func isNativeImageMime(mime string) bool {
 	default:
 		return false
 	}
+}
+
+// errUnsupportedImageBytes marks media whose bytes are not a raster image the
+// provider adapters can parse, however the attachment happened to be labelled.
+var errUnsupportedImageBytes = errors.New("attachment bytes are not a raster image the model can parse")
+
+// modelImageMimeFromBytes resolves the MIME a vision request should declare for
+// head, the leading bytes of an image attachment.
+//
+// A declared MIME is a label, not evidence. Telegram video and animated
+// stickers are WebM and gzipped Lottie, platforms mislabel image subtypes, and
+// the media store keeps whatever the channel reported. Handing those bytes to
+// an image-only provider fails image parsing, and an attachment that stays in
+// pending discussion context fails the same way on every later turn. So the
+// bytes decide, and anything outside the common raster set is refused here
+// instead of at the provider.
+func modelImageMimeFromBytes(head []byte) (string, error) {
+	detected := attachmentpkg.NormalizeMime(http.DetectContentType(head))
+	if !isNativeImageMime(detected) {
+		return "", fmt.Errorf("%w: detected %s", errUnsupportedImageBytes, detected)
+	}
+	return detected, nil
+}
+
+// normalizeInlineImageDataURL applies the same byte check to an attachment that
+// already carries inline base64, and returns the data URL re-stamped with the
+// MIME its bytes actually are.
+//
+// Payload and MIME have to be corrected together. A declared subtype that
+// disagrees with the bytes is its own source of provider errors, and the two
+// travel separately from here on — the data URL reaches the provider adapters
+// and the External Agent prompt, while the MIME field drives capability
+// routing. Fixing one and not the other just moves the disagreement.
+func normalizeInlineImageDataURL(payload string) (string, string, error) {
+	body, declared := splitInlineDataURL(payload)
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return "", "", fmt.Errorf("%w: empty payload", errUnsupportedImageBytes)
+	}
+	head := body
+	// base64 decodes in 4-character groups; keep the prefix aligned so the
+	// sniff window stays valid for payloads far larger than it.
+	const sniffChars = 512 / 3 * 4
+	if len(head) > sniffChars {
+		head = head[:sniffChars]
+	}
+	decoded, err := base64.StdEncoding.DecodeString(head)
+	if err != nil {
+		return "", "", fmt.Errorf("%w: payload is not valid base64", errUnsupportedImageBytes)
+	}
+	mime, err := modelImageMimeFromBytes(decoded)
+	if err != nil {
+		return "", "", err
+	}
+	if strings.EqualFold(attachmentpkg.NormalizeMime(declared), mime) {
+		return payload, mime, nil
+	}
+	return "data:" + mime + ";base64," + body, mime, nil
 }
 
 func isNativeImageAttachment(att gatewayAttachment) bool {
