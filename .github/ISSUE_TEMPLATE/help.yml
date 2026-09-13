@@ -1,9 +1,9 @@
 ---
-name: Bug Report
-description: Report a bug or unexpected behavior
-title: "[Bug]: "
+name: Help
+description: Get help with installation, configuration, or usage
+title: "[Help]: "
 labels:
-- bug
+- help
 body:
 - type: dropdown
   id: author
@@ -20,45 +20,33 @@ body:
   attributes:
     label: Type
     options:
-    - bug
+    - help
   validations:
     required: true
 - type: textarea
   id: description
   attributes:
-    label: Bug Description
+    label: Problem
   validations:
     required: true
 - type: textarea
-  id: steps
+  id: goal
   attributes:
-    label: Steps to Reproduce
+    label: Desired Outcome
   validations:
     required: true
 - type: textarea
-  id: expected
+  id: attempts
   attributes:
-    label: Expected and Actual Behavior
-  validations:
-    required: true
-- type: textarea
-  id: version
-  attributes:
-    label: Version
+    label: What You Have Tried
   validations:
     required: true
 - type: textarea
   id: environment
   attributes:
-    label: Environment
+    label: Version and Environment
   validations:
-    required: false
-- type: textarea
-  id: model
-  attributes:
-    label: Model Used
-  validations:
-    required: false
+    required: true
 - type: textarea
   id: logs
   attributes:

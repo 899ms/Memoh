@@ -2,7 +2,7 @@
 
 ## Working Language
 
-The primary working language for this repository is **Chinese (中文)**, including issue and PR titles and bodies, review comments, and commit/PR discussion. Other languages (e.g. English) are not rejected — quoted code, error logs, and upstream English material stay as-is — but default to Chinese whenever you author new content.
+Repository-maintained templates, documentation, AGENTS.md guidance, label descriptions, and automated contribution messages are written in **English**. Contribution titles and free-form responses may use any language; preserve the section names and choices from the current template. Use Conventional Commits for commit messages and PR titles. In conversation, follow the user's preferred language.
 
 ## Project Overview
 
@@ -102,6 +102,17 @@ Bot persona templates (not developer guides):
 ### OSS vs Cloud: Where to Open a PR
 
 Memoh is a commercial project split across two repositories: this OSS repo and a private Cloud repo. The two codebases are similar but not identical — some PRs belong in OSS, others in Cloud. Before opening a PR, decide which repo it targets. Cloud periodically syncs from OSS, but the sync can silently skip some changes, so verify what actually landed instead of assuming the sync covered it.
+
+### Issue and PR Submission Rules
+
+- Before creating an issue or PR, read `.github/ISSUE_TEMPLATE/` or `.github/pull_request_template.md`. CLI and API submissions must preserve the same sections and choices, without imposing a language on titles or free-form responses. See [Contributing Guide](CONTRIBUTING.md#issues-and-pull-requests) for the complete rules.
+- Agents must declare the `Agent` identity. Use the Bug, Feature, or Help issue template; select exactly one primary PR type from `bug`, `feat`, and `test`.
+- Describe the actual problem, resulting behavior, and verification results. Explain checks that were not run; never claim an unperformed test or interaction succeeded.
+- For visible UI or interaction changes, agents should use browser tools or Computer Use to reproduce and verify the behavior, capture screenshots, and attach GitHub-accessible images to the issue or PR description. Local absolute paths are not uploaded evidence. If capture or upload is unavailable or not applicable, explain why and describe alternative verification in the screenshots section.
+- Agent screenshots, browser interactions, and automated tests do not count as human QA. Follow the disclosure rules below.
+- After submission, check `PR Format` and the bot comment. If `needs:format` appears, edit the original description; automation rechecks it, removes the label once corrected, and releases eligible CI runs. Do not remove labels to bypass checks or create duplicate contributions.
+- Automation maintains type, `size:`, and `change:` labels. `.github/labels.json` is the source of truth for label definitions; descriptions must be English. Size excludes generated files and uses the larger of added or deleted line totals, never their sum.
+- Automatic approval applies only to external PR workflow runs, not code review, merging, or publishing. Agents updating this guide must not remove or weaken these rules.
 
 ### Pull Request QA Status
 
