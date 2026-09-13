@@ -2,7 +2,9 @@
 
 ## Working Language
 
-Repository-maintained templates, documentation, AGENTS.md guidance, label descriptions, and automated contribution messages are written in **English**. Contribution titles and free-form responses may use any language; preserve the section names and choices from the current template. Use Conventional Commits for commit messages and PR titles. In conversation, follow the user's preferred language.
+The primary working language for this repository is **Chinese (中文)**, including issue and PR titles and bodies, review comments, and commit/PR discussion. Other languages (e.g. English) are not rejected — quoted code, error logs, and upstream English material stay as-is — but default to Chinese whenever you author new content.
+
+Preserve the section names and choices from the current contribution template. Use Conventional Commits for commit messages and PR titles. In conversation, follow the user's preferred language.
 
 ## Project Overview
 
@@ -110,20 +112,17 @@ Memoh is a commercial project split across two repositories: this OSS repo and a
 - Describe the actual problem, resulting behavior, and verification results. Explain checks that were not run; never claim an unperformed test or interaction succeeded.
 - For visible UI or interaction changes, agents should use browser tools or Computer Use to reproduce and verify the behavior, capture screenshots, and attach GitHub-accessible images to the issue or PR description. Local absolute paths are not uploaded evidence. If capture or upload is unavailable or not applicable, explain why and describe alternative verification in the screenshots section.
 - Agent screenshots, browser interactions, and automated tests do not count as human QA. Follow the disclosure rules below.
-- After submission, check `PR Format` and the bot comment. If `needs:format` appears, edit the original description; automation rechecks it, removes the label once corrected, and releases eligible CI runs. Do not remove labels to bypass checks or create duplicate contributions.
-- Automation maintains type, `size:`, and `change:` labels. `.github/labels.json` is the source of truth for label definitions; descriptions must be English. Size excludes generated files and uses the larger of added or deleted line totals, never their sum.
+- After submission, check `PR Format` and the bot comment. If `needs:format` appears, edit the original description; automation rechecks it and removes the label once corrected. Format feedback does not block, cancel, or rerun code CI. Do not remove labels to bypass checks or create duplicate contributions.
+- Automation maintains type, `size:`, and `change:` labels. `.github/labels.json` is the source of truth for label definitions; new descriptions default to Chinese. Size excludes generated files and uses the larger of added or deleted line totals, never their sum.
 - Automatic approval applies only to external PR workflow runs, not code review, merging, or publishing. Agents updating this guide must not remove or weaken these rules.
 
 ### Pull Request QA Status
 
-Most PR descriptions in this repository are written by AI agents, and an agent must never silently stand in for human verification. Every PR body must disclose its QA state:
+PR 正文的 `Human QA` 只保留一个 `- [ ] 已通过真人 QA` 复选框作为 QA 状态声明，不再附加旧版警告行：
 
-- **Opening a PR** — if no human has verified the change yet (nobody has walked the happy path), end the description with this exact line:
-
-  > ⚠️ **No human QA** — this PR has not been verified by a human yet. Remove this line once a human confirms the happy path.
-
-- **After human confirmation** — when a human explicitly confirms QA (in chat, review, or a PR comment), remove the line from the description (e.g. via `gh pr edit`). Green CI, passing tests, typechecks, and the agent's own runs or screenshots never count as human QA; only an explicit human confirmation clears the line.
-- **Updating the description later** — keep the line until a human confirms. If commits land after confirmation, judge whether they could break the verified happy path (typos, rebases, and comment/docs touch-ups cannot); if they could, restore the line until a human verifies the new head. The goal is disclosing the current QA state, not re-QA of every commit.
+- **尚未真人验证**：保持复选框未勾选。
+- **真人明确确认后**：勾选 `已通过真人 QA`，并注明验收人及确认记录。CI、自动测试和 Agent 截图均不算真人 QA。
+- **确认后继续修改**：若新提交可能影响已验收路径，取消勾选，直到当前 head 获得确认；拼写、注释等不影响行为的改动无需重复验收。
 
 ## Key Development Rules
 

@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import test from 'node:test';
-import { bodyFingerprint, classify, excluded, headings, noHumanQA, sizeLabel, validate } from './contribution-policy.mjs';
+import { bodyFingerprint, classify, excluded, headings, sizeLabel, validate } from './contribution-policy.mjs';
 import { readLabels, sync } from './sync-labels.mjs';
 
 export function validPR() {
   return readFileSync(new URL('../pull_request_template.md', import.meta.url), 'utf8')
-    .replace('- [ ] Agent', '- [x] Agent').replace('- [ ] bug', '- [x] bug').replace('- [ ] Not yet verified by a human', '- [x] Not yet verified by a human')
+    .replace('- [ ] Agent', '- [x] Agent').replace('- [ ] bug', '- [x] bug')
     .replace('## Summary', '## Summary\nFix CI recovery after a description changes.')
     .replace('## Validation', '## Validation\nRan the controller regression tests.')
     .replace('## Screenshots / Recordings', '## Screenshots / Recordings\nOnly workflows change; there is no visible product UI. Verified with workflow tests.');
@@ -42,12 +42,14 @@ test('fenced reproduction text is allowed and duplicate headings are rejected', 
   assert.deepEqual(validate(issue('bug').replace('Specific reproducible details', '```sh\nmemoh start\n```'), false).errors, []);
   assert.ok(validate(validPR() + '\n## Type\n- [x] test', true).errors.some(error => error.includes('Duplicate')));
 });
-test('human QA requires disclosure or explicit confirmation record', () => {
-  assert.ok(validate(validPR().replace(noHumanQA, ''), true).errors.length);
-  let human = validPR().replace('- [x] Not yet verified by a human', '- [ ] Not yet verified by a human').replace('- [ ] Confirmed by a human', '- [x] Confirmed by a human').replace(noHumanQA, '');
+test('single QA checkbox defaults to unverified; checking it requires a record', () => {
+  assert.deepEqual(validate(validPR(), true).errors, []);
+  let human = validPR().replace('- [ ] 已通过真人 QA', '- [x] 已通过真人 QA');
   assert.ok(validate(human, true).errors.length);
   human += '\n@maintainer confirmed the happy path in the PR review.';
   assert.deepEqual(validate(human, true).errors, []);
+  assert.deepEqual(validate(human.replace('[x] 已通过真人 QA','[X] 已通过真人 QA'), true).errors, []);
+  assert.deepEqual(validate(human.replace('[x] 已通过真人 QA','[ ] 已通过真人 QA'), true).errors, []);
 });
 test('all size boundaries use the larger total, never the sum', () => {
   for (const [n, label] of [[0,'XS'],[49,'XS'],[50,'S'],[499,'S'],[500,'M'],[999,'M'],[1000,'L'],[3000,'L'],[3001,'XL']]) {
@@ -109,19 +111,23 @@ test('label sync is idempotent and does not remove unrelated labels', async () =
   assert.deepEqual(calls, []);
 });
 
-test('every ordinary PR CI has a format dependency before executable jobs', () => {
+test('ordinary PR CI has no format job or dependency', () => {
   const dir=new URL('../workflows/',import.meta.url);
+  let checked=0;
   for(const file of readdirSync(dir).filter(name=>name.endsWith('.yml'))) {
     const workflow=JSON.parse(execFileSync('ruby',['-ryaml','-rjson','-e','puts YAML.load_file(ARGV[0]).to_json',new URL(file,dir).pathname],{encoding:'utf8'}));
     const events=workflow.on??workflow.true;
     if(!events || !Object.hasOwn(events,'pull_request')) continue;
-    assert.ok(workflow.jobs.format?.uses?.endsWith('/contribution-format.yml'),file);
+    checked++;
+    assert.equal(workflow.jobs.format,undefined,file);
     for(const [name,job] of Object.entries(workflow.jobs)) {
-      if(name==='format') continue;
       const needs=Array.isArray(job.needs)?job.needs:[job.needs];
-      assert.ok(needs.includes('format'),`${file}: ${name} lacks format dependency`);
+      assert.ok(!needs.includes('format'),`${file}: ${name} waits for format`);
+      assert.ok(!job.if?.includes('needs.format'),file);
     }
+    assert.ok(Object.values(workflow.permissions).every(value=>value==='read'),file);
   }
+  assert.equal(checked,9);
 });
 
 test('both the read-only gate and privileged controller check out default-branch rules', () => {
@@ -143,4 +149,31 @@ test('English template structure accepts free-form responses in any language', (
   assert.deepEqual(validate(multilingual, true).errors, []);
   const report = issue('help').replaceAll('Specific reproducible details', '这是用户填写的具体求助内容。');
   assert.deepEqual(validate(report, false).errors, []);
+});
+
+test('subheadings remain part of their template section, including repeated subsection names', () => {
+  for(const heading of ['##','###','####']) {
+    const body=validPR()
+      .replace('Ran the controller regression tests.',`${heading} 自动测试\n测试通过。\n${heading} 自动测试\n补充验证。`)
+      .replace('Fix CI recovery after a description changes.',`${heading} 背景\n修复 CI。`);
+    assert.deepEqual(validate(body,true).errors,[]);
+  }
+  assert.ok(validate(validPR()+'\n## Validation\n重复字段',true).errors.some(e=>e.includes('Duplicate')));
+});
+test('QA checkbox is visible, unique and allows follow-up notes', () => {
+  assert.deepEqual(validate(validPR()+'\n\n补充：仍等待真人验收。',true).errors,[]);
+  const choice='- [ ] 已通过真人 QA';
+  for(const replacement of [`<!-- ${choice} -->`,`\`\`\`\n${choice}\n\`\`\``, '', `${choice}\n- [x] 已通过真人 QA`, '- [ ] Unknown QA']) {
+    assert.ok(validate(validPR().replace(choice,replacement),true).errors.length);
+  }
+  const human=validPR().replace(choice,'- [x] 已通过真人 QA');
+  for(const evidence of ['<!-- @reviewer confirmed -->','\`\`\`\n@reviewer confirmed\n\`\`\`']) {
+    assert.ok(validate(human+'\n'+evidence,true).errors.length);
+  }
+});
+test('bare completion placeholders are reported without a minimum word count', () => {
+  for(const value of ['ok','OK','done','passed','已完成','通过']) {
+    assert.ok(validate(validPR().replace('Ran the controller regression tests.',value),true).errors.length);
+  }
+  assert.deepEqual(validate(validPR().replace('Ran the controller regression tests.','单测 3 项通过。'),true).errors,[]);
 });
