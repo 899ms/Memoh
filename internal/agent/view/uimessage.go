@@ -67,11 +67,17 @@ type UIMessage struct {
 	Progress          []any                `json:"progress,omitempty"`
 	Approval          *UIToolApproval      `json:"approval,omitempty"`
 	ExecutionLocation *UIExecutionLocation `json:"execution_location,omitempty"`
-	UserInput         *UIUserInput         `json:"user_input,omitempty"`
-	Attachments       []UIAttachment       `json:"attachments,omitempty"`
-	Background        *UIBackgroundTask    `json:"background_task,omitempty"`
-	ReasoningTiming   *UIReasoningTiming   `json:"reasoning_timing,omitempty"`
-	Code              string               `json:"code,omitempty"`
+	// Diff is a UI-only unified diff attached to the tool call at execution
+	// time (edit/write tools). It never reaches the model: rows persist it
+	// under the diffs metadata key — on the assistant row (lifted out of
+	// providerMetadata at store time) or, for the deferred-approval path, on
+	// the tool message row — never inside the tool result.
+	Diff            string             `json:"diff,omitempty"`
+	UserInput       *UIUserInput       `json:"user_input,omitempty"`
+	Attachments     []UIAttachment     `json:"attachments,omitempty"`
+	Background      *UIBackgroundTask  `json:"background_task,omitempty"`
+	ReasoningTiming *UIReasoningTiming `json:"reasoning_timing,omitempty"`
+	Code            string             `json:"code,omitempty"`
 	// Args are the machine-readable parameters of a notice block: the string
 	// values of the runtime_notice event metadata (dep_id and install_task_id
 	// for a workspace dependency notice, for instance). The client renders
