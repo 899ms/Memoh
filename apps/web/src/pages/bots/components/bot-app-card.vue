@@ -7,6 +7,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
+  AlertTriangle,
   ExternalLink,
   MoreHorizontal,
   Package as AppIcon,
@@ -51,16 +52,9 @@ const emit = defineEmits<{
 }>()
 
 const { t, locale } = useI18n()
-const { dependencyIconUrl } = useWorkspaceDependencyText()
+const { appDependencyIconUrl } = useWorkspaceDependencyText()
 
-// A discovered App has no release, so no icon of its own; its dependency
-// carries the same artwork.
-const fallbackIconUrl = computed(() => {
-  if (props.item.icon) return ''
-  const deps = props.item.dependencies ?? []
-  const dep = deps.find(entry => entry.id === props.item.app_id) ?? deps[0]
-  return dep?.dependency ? dependencyIconUrl(dep.dependency) : ''
-})
+const fallbackIconUrl = computed(() => appDependencyIconUrl(props.item))
 
 const name = computed(() => appDisplayName(props.item, locale.value))
 const description = computed(() => appDisplayDescription(props.item, locale.value))
@@ -69,9 +63,7 @@ const inProgress = computed(() => appInProgress(props.item))
 const readonly = computed(() => props.workspaceState !== 'running' && props.workspaceState !== undefined)
 const primary = computed(() => appPrimaryAction(props.item, { busy: props.busy, ownsStream: props.ownsStream, readonly: readonly.value }))
 const canRemove = computed(() => !discovered.value && !inProgress.value)
-const failedText = computed(() => (
-  props.item.last_error && (props.item.status === 'failed' || props.item.status === 'partial') ? props.item.last_error : ''
-))
+const needsAttention = computed(() => props.item.status === 'failed' || props.item.status === 'partial')
 </script>
 
 <template>
@@ -99,12 +91,19 @@ const failedText = computed(() => (
     </template>
 
     <template
-      v-if="failedText"
+      v-if="needsAttention"
       #meta
     >
-      <p class="break-all font-mono text-caption text-destructive">
-        {{ failedText }}
-      </p>
+      <span
+        class="flex items-center gap-1 text-caption"
+        :class="item.status === 'failed' ? 'text-destructive' : 'text-warning-foreground'"
+      >
+        <AlertTriangle
+          class="size-3 shrink-0"
+          aria-hidden="true"
+        />
+        {{ t(item.status === 'failed' ? 'apps.diagnostics.failed' : 'apps.diagnostics.partial') }}
+      </span>
     </template>
 
     <template #actions>

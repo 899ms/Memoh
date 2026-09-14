@@ -3701,7 +3701,14 @@
     "installPreviewDependency": "缺失时安装到工作区",
     "installPreviewConnector": "安装时授权",
     "installPreviewConnectorOptional": "可稍后授权（可选）",
-    "viewAll": "查看全部"
+    "viewAll": "查看全部",
+    "sidebar": {
+      "installed": "已安装",
+      "manageRequired": "需要此 Bot 的管理权限才能安装应用。",
+      "manage": "管理",
+      "discovered": "工作区中已有",
+      "allLoaded": "已加载全部应用"
+    }
   },
   "connectors": {
     "title": "连接器",
@@ -3864,6 +3871,14 @@
     "copyFailed": "复制验证码失败"
   },
   "apps": {
+    "diagnostics": {
+      "failed": "操作失败",
+      "partial": "需要处理",
+      "viewDetails": "查看详情",
+      "errorDetails": "错误详情",
+      "copyError": "复制错误信息",
+      "partialHint": "部分组件失败或尚未授权。请检查下方组件，完成应用设置。"
+    },
     "title": "应用",
     "checkUpdates": "检查更新",
     "checkUpdatesDone": "更新检查完成",

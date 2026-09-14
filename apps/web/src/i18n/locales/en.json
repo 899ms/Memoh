@@ -3701,7 +3701,14 @@
     "installPreviewDependency": "install into the workspace if missing",
     "installPreviewConnector": "authorize during installation",
     "installPreviewConnectorOptional": "can be authorized later (optional)",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "sidebar": {
+      "installed": "Installed",
+      "manageRequired": "Manage permission is required to install Apps for this bot.",
+      "manage": "Manage",
+      "discovered": "Available in workspace",
+      "allLoaded": "All apps loaded"
+    }
   },
   "connectors": {
     "title": "Connectors",
@@ -3864,6 +3871,14 @@
     "copyFailed": "Failed to copy the code"
   },
   "apps": {
+    "diagnostics": {
+      "failed": "Operation failed",
+      "partial": "Needs attention",
+      "viewDetails": "View details",
+      "errorDetails": "Error details",
+      "copyError": "Copy error details",
+      "partialHint": "Some components failed or still need authorization. Review the components below to finish setup."
+    },
     "title": "Apps",
     "checkUpdates": "Check for updates",
     "checkUpdatesDone": "Update check finished",
