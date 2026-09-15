@@ -203,6 +203,7 @@ func (c *agentStepCommitter) persist(ctx context.Context, stepIndex int, step *s
 	for i := range inputs {
 		inputs[i].TurnRequestMessageID = c.turnRequestMessageID
 	}
+	c.stampSteerTurn(inputs)
 	agentStep := messagepkg.AgentStep{RunID: c.req.RunID, Messages: inputs, Interrupted: interrupted}
 	var persisted []messagepkg.Message
 	var queueErr error
@@ -264,6 +265,39 @@ func (c *agentStepCommitter) persist(ctx context.Context, stepIndex int, step *s
 	return nil
 }
 
+// stampSteerTurn files this step's injected steer input under the turn drawn
+// when the input was claimed, instead of letting persistence mint a second name
+// for it. The row is identified by position rather than by text, and the
+// position to take is the last one: the steer is the final user row a step can
+// carry. PrepareStep's other user-row injectors — the image-only row read_media
+// appends after reading media, and mid-turn platform injects — are wrapped
+// inside prepareQueuedSteer, so their rows are appended ahead of the steer, and
+// sdk.StepResult.Messages holds only the assistant and tool rows the provider
+// produced. So scan from the end and take the last user row nobody named.
+// native.TestQueuedSteerIsAppendedAfterEveryOtherPreparedMessage pins the
+// ordering this depends on.
+func (c *agentStepCommitter) stampSteerTurn(inputs []messagepkg.PersistInput) {
+	if c == nil || c.queueStep == nil {
+		return
+	}
+	slot := c.queueStep.steerTurnForStep()
+	if slot == nil || strings.TrimSpace(slot.TurnID) == "" {
+		return
+	}
+	for i := len(inputs) - 1; i >= 0; i-- {
+		if !strings.EqualFold(strings.TrimSpace(inputs[i].Role), "user") {
+			continue
+		}
+		if strings.TrimSpace(inputs[i].TurnID) != "" {
+			continue
+		}
+		position := slot.Position
+		inputs[i].TurnID = slot.TurnID
+		inputs[i].TurnPosition = &position
+		return
+	}
+}
+
 func (c *agentStepCommitter) publishQueueUserTurns(ctx context.Context, stepIndex int, outcome queueStepOutcome) {
 	if c == nil || c.service == nil || c.service.sessionManager == nil {
 		return
@@ -290,6 +324,10 @@ func (c *agentStepCommitter) publishQueueUserTurns(ctx context.Context, stepInde
 		update.ClaimedSteerItemID = string(outcome.claimedSteer.ID)
 		update.ClaimedSteerText = QueuePayloadText(outcome.claimedSteer.Payload)
 		update.ClaimedSteerTimestamp = outcome.claimedSteer.CreatedAt
+		if outcome.claimedSteerTurn != nil {
+			update.ClaimedSteerTurnID = outcome.claimedSteerTurn.TurnID
+			update.ClaimedSteerTurnPosition = outcome.claimedSteerTurn.Position
+		}
 		// Anchor after the step that just committed. Its step_end marker was
 		// emitted by the native loop before the commit barrier ran, so the wait
 		// only covers event consumption and is bounded.
