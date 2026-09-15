@@ -1,5 +1,5 @@
-import { isRuntimeSteerTurnId, type ChatAssistantTurn, type ChatUserTurn } from './types'
-import type { RuntimeTranscriptSlice } from './runtime-projection'
+import { isRuntimeSteerTurnId, type ChatAssistantTurn, type ChatMessage, type ChatUserTurn } from './types'
+import { isRuntimeRunActive, type RuntimeTranscriptSlice } from './runtime-projection'
 
 type RuntimeChatTurn = ChatUserTurn | ChatAssistantTurn
 
@@ -64,4 +64,42 @@ export function reconcileRuntimeTurns(
     }
   }
   return resolved
+}
+
+// A terminal run view is not cleared when the run ends: it survives in the
+// session snapshot for the whole state TTL and is replayed on every subscribe.
+// Appending from one re-added a days-old round below the newest turns once its
+// turn had aged out of the loaded window.
+//
+// The decision is per turn, not per run. A run owns several turns — an applied
+// steer opens its own (SR-TURN-001) — so the run's starting position says
+// nothing about where its later turns landed, and using it as the test threw
+// away a steer's freshly committed answer along with the aged-out first half.
+//
+// A turn already on screen always stays: the frame is reconciling it, not
+// introducing it. Otherwise the loaded window decides. Positions come from one
+// monotonic per-session counter, so a turn numbered at or below the newest
+// settled turn is one the history read has already passed: it did not come
+// back, so it is not in history, and this frame has nothing to add. A turn
+// numbered past that window, or not numbered at all, is newer than anything
+// the read returned and must still be shown.
+export function admissibleRuntimeTurns<T extends ChatMessage>(
+  messages: readonly ChatMessage[],
+  slice: RuntimeTranscriptSlice,
+  resolved: T[],
+): T[] {
+  if (isRuntimeRunActive(slice.status)) return resolved
+  let newestSettled: number | undefined
+  for (const turn of messages) {
+    if (turn.settled !== true || turn.turnPosition === undefined) continue
+    if (newestSettled === undefined || turn.turnPosition > newestSettled) {
+      newestSettled = turn.turnPosition
+    }
+  }
+  if (newestSettled === undefined) return resolved
+  const window = newestSettled
+  return resolved.filter((turn) => {
+    if (messages.includes(turn)) return true
+    return turn.turnPosition === undefined || turn.turnPosition > window
+  })
 }
