@@ -652,6 +652,40 @@ function interruptedRunStoreScript(): RuntimeTestUpdate[] {
 
 describe('chat-list store', () => {
 
+  it('starts bot activity before a restored session finishes loading', async () => {
+    const restored = deferred<{
+      id: string
+      bot_id: string
+      title: string
+      type: 'chat'
+    }>()
+    api.fetchSession.mockReturnValueOnce(restored.promise)
+    const selection = useChatSelectionStore()
+    selection.setBot('bot-1')
+    selection.setSession('session-restored', { explicitSelection: true })
+    const store = useChatStore()
+
+    const initializing = store.initialize()
+    await flushPromises()
+
+    expect(api.streamBotSessionsActivityEvents).toHaveBeenCalledWith(
+      'bot-1',
+      expect.any(AbortSignal),
+      expect.any(Function),
+    )
+    expect(api.connectWebSocket).not.toHaveBeenCalled()
+
+    restored.resolve({
+      id: 'session-restored',
+      bot_id: 'bot-1',
+      title: 'Restored session',
+      type: 'chat',
+    })
+    await initializing
+
+    expect(api.connectWebSocket).toHaveBeenCalledWith('bot-1', expect.any(Function))
+  })
+
   it('selects the first ready bot during initialization when none is selected', async () => {
       api.fetchBots.mockResolvedValueOnce([
         { id: 'bot-creating', status: 'creating', name: 'Creating' },
@@ -1794,6 +1828,43 @@ describe('chat-list store', () => {
 
       expect(api.fetchSessions).toHaveBeenCalledTimes(2)
       expect(store.sessions.map(session => session.id)).toEqual(['session-hidden', 'session-visible'])
+    })
+
+  it('refreshes the active schedule transcript when persisted activity arrives', async () => {
+      api.fetchSessions.mockResolvedValueOnce({ items: [
+        { id: 'session-schedule', bot_id: 'bot-1', title: 'Shower reminder', type: 'schedule' },
+      ], nextCursor: null })
+      api.fetchMessagesUI
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{
+          id: 'assistant-schedule',
+          role: 'assistant',
+          messages: [{ id: 1, type: 'text', content: 'Time to take a shower.' }],
+          timestamp: '2026-09-16T10:01:00.000Z',
+        }])
+      const store = useChatStore()
+
+      await store.selectBot('bot-1')
+      expect(store.sessionId).toBe('session-schedule')
+      expect(store.messages).toEqual([])
+
+      h.sessionsActivityHandler?.({
+        type: 'session_touched',
+        session_id: 'session-schedule',
+        updated_at: '2026-09-16T10:01:00.000Z',
+      })
+      await flushPromises()
+
+      expect(api.fetchMessagesUI).toHaveBeenLastCalledWith(
+        'bot-1',
+        'session-schedule',
+        { limit: 30 },
+      )
+      expect(store.messages).toHaveLength(1)
+      expect(store.messages[0]).toMatchObject({
+        id: 'assistant-schedule',
+        role: 'assistant',
+      })
     })
 
   it('deduplicates concurrent ACP runtime ensure calls', async () => {
@@ -4675,7 +4746,7 @@ describe('chat-list store', () => {
       // would be incomplete).
       api.fetchSessions.mockResolvedValueOnce({
         items: [
-          { id: 'session-2', bot_id: 'bot-1', title: 'New', type: 'discuss' },
+          { id: 'session-2', bot_id: 'bot-1', title: 'Scheduled run', type: 'schedule' },
           { id: 'session-1', bot_id: 'bot-1', title: 'A', type: 'chat' },
         ],
         nextCursor: null,
@@ -4683,8 +4754,8 @@ describe('chat-list store', () => {
       h.sessionsActivityHandler?.({
         type: 'session_created',
         session_id: 'session-2',
-        session_type: 'discuss',
-        title: 'New',
+        session_type: 'schedule',
+        title: 'Scheduled run',
       })
       await flushPromises()
 
