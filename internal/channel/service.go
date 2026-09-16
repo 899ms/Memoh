@@ -49,6 +49,9 @@ func (s *Store) UpsertConfig(ctx context.Context, botID string, channelType Chan
 	}
 	normalized, err := s.registry.NormalizeConfig(channelType, req.Credentials)
 	if err != nil {
+		if s.registry.SelfIdentityPolicy(channelType).RequireDiscoveryOnEnable {
+			return ChannelConfig{}, fmt.Errorf("%s configuration verification failed: %w: %w", channelType, ErrChannelDiscoveryFailed, err)
+		}
 		return ChannelConfig{}, err
 	}
 	credentialsPayload, err := json.Marshal(normalized)
@@ -250,7 +253,7 @@ func (s *Store) prepareSelfIdentity(
 			if message == "" {
 				message = fmt.Sprintf("%s identity discovery returned no required identity", channelType)
 			}
-			return nil, "", errors.New(message)
+			return nil, "", fmt.Errorf("%s: %w", message, ErrChannelDiscoveryFailed)
 		}
 	}
 	return selfIdentity, externalIdentity, nil
