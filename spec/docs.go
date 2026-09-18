@@ -1185,6 +1185,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/apperror.Problem"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/apperror.Problem"
+                        }
+                    },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
