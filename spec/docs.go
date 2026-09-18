@@ -27555,9 +27555,6 @@ const docTemplate = `{
                 "image_model_id": {
                     "type": "string"
                 },
-                "language": {
-                    "type": "string"
-                },
                 "memory_provider_id": {
                     "type": "string"
                 },
@@ -27727,10 +27724,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "image_model_id": {
-                    "type": "string"
-                },
-                "language": {
-                    "description": "Language follows the same pointer rule; \"\" normalizes to DefaultLanguage\n(\"auto\") rather than clearing the column.",
                     "type": "string"
                 },
                 "memory_provider_id": {
