@@ -3810,9 +3810,12 @@ definitions:
       image:
         type: string
       restore_data:
+        description: |-
+          RestoreData imports the preserved /data archive into the new workspace
+          once it is running. Backends that expose snapshot mounts restore the
+          archive while starting regardless of this flag; the flag matters for
+          backends that restore through the bridge.
         type: boolean
-      snapshotter:
-        type: string
     type: object
   handlers.CreateContainerResponse:
     properties:
@@ -9814,6 +9817,7 @@ paths:
       tags:
       - containerd
     post:
+      description: Records the intent for a running workspace and streams the
       parameters:
       - description: Bot ID
         in: path
@@ -9839,7 +9843,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Create and start workspace for bot
+      summary: Create workspace for bot
       tags:
       - containerd
   /bots/{bot_id}/container/browser/sessions:

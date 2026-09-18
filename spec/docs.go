@@ -3617,10 +3617,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "description": "Records the intent for a running workspace and streams the",
                 "tags": [
                     "containerd"
                 ],
-                "summary": "Create and start workspace for bot",
+                "summary": "Create workspace for bot",
                 "parameters": [
                     {
                         "type": "string",
@@ -23152,10 +23153,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "restore_data": {
+                    "description": "RestoreData imports the preserved /data archive into the new workspace\nonce it is running. Backends that expose snapshot mounts restore the\narchive while starting regardless of this flag; the flag matters for\nbackends that restore through the bridge.",
                     "type": "boolean"
-                },
-                "snapshotter": {
-                    "type": "string"
                 }
             }
         },
