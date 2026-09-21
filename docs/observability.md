@@ -40,6 +40,7 @@ knows:
 | --- | --- |
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_ENDPOINT` | Collector address; setting either enables export |
 | `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL`, `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` or `http/protobuf` |
+| `OTEL_EXPORTER_OTLP_TRACES_INSECURE`, `OTEL_EXPORTER_OTLP_INSECURE` | Whether to skip TLS for a scheme-less endpoint |
 | `OTEL_EXPORTER_OTLP_HEADERS` | `key=value,key=value` sent with every export |
 | `OTEL_TRACES_SAMPLER_ARG` | Sample ratio |
 | `OTEL_SERVICE_NAME` | Overrides the reported `service.name` |
@@ -48,6 +49,12 @@ knows:
 `OTEL_TRACES_SAMPLER` is deliberately **not** read beyond that ratio: claiming
 to support sampler names that are not implemented would be worse than not
 reading the variable at all.
+
+Give the endpoint a scheme where you can. `http://collector:4317` and
+`https://collector:4317` each say what to do on their own; `collector:4317`
+does not, and then TLS is decided by the insecure setting, which defaults to
+off. Pointing a scheme-less endpoint at a plaintext collector therefore ends
+in a TLS handshake error that names neither the setting nor the endpoint.
 
 Sampling is `ParentBased`, so `sample_ratio` governs traces this process
 starts. A request that arrives already sampled stays sampled — deciding again
@@ -67,6 +74,12 @@ than either keeping or dropping them whole.
 | Agent turn | One span per turn, with its outcome | `startTurnSpan`, on both entry points |
 | Model call | One span per provider call | `providerCallObserver`, in `internal/agent/runtime/native` |
 | Tool call | One span per tool execution | `wrapToolTracing`, in `assembleTools` |
+
+The liveness probe is the one request that gets no span at all. It runs every
+few seconds forever and says the same thing every time, so tracing it fills a
+backend with probes. `/ping` is not in that category: it reports the server's
+capabilities and the desktop app calls it to decide whether a server is
+usable.
 
 A turn therefore reads as a tree:
 
