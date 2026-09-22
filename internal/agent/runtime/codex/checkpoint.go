@@ -34,6 +34,29 @@ type checkpointFS interface {
 	Mkdir(context.Context, string) error
 }
 
+// errCheckpointFSUnsupported reports a workspace client that cannot host
+// native checkpoints.
+var errCheckpointFSUnsupported = errors.New("codex: workspace client does not support the no-follow file access checkpoints require")
+
+// checkpointFSFor resolves the filesystem native checkpoints live on. They
+// require no-follow reads: following a symlink out of the rollout root would
+// let a workspace read or overwrite files it does not own, so a client without
+// that capability must not host them. This build's bridge client always
+// provides it — the narrowing exists for builds whose workspace client is
+// provider-neutral and carries the capability optionally.
+//
+// Callers degrade rather than fail. A workspace that cannot host checkpoints
+// leaves the session exactly where one with no state store already is: no
+// snapshot is written or restored, and the thread keeps running on codex's own
+// files. Refusing the turn would brick it instead, and the condition is the
+// same on every later turn, so failing would never clear.
+func checkpointFSFor(client *bridge.Client) (checkpointFS, error) {
+	if client == nil {
+		return nil, errCheckpointFSUnsupported
+	}
+	return client, nil
+}
+
 // A warm handle is valid only after its staged run becomes the publication
 // head. Starting another turn invalidates it until that turn is committed.
 type checkpointHandle struct {
@@ -120,7 +143,7 @@ func (d *Driver) prepareCheckpoint(ctx context.Context, srv *appServer, fs check
 // the same on every later turn, so failing the turn would never clear.
 func (d *Driver) prepareCheckpointAt(ctx context.Context, srv *appServer, fs checkpointFS, input external.PromptInput, root string) (checkpointHandle, error) {
 	hint := checkpointHandle{NativeID: metadataString(input.RuntimeMetadata, metadataThreadIDKey)}
-	if d.stateStore == nil || input.ForceFreshRuntime {
+	if d.stateStore == nil || fs == nil || input.ForceFreshRuntime {
 		return hint, nil
 	}
 	head, found, err := d.stateStore.Head(ctx, input.BotID, input.ThreadID)
@@ -203,7 +226,11 @@ func (d *Driver) stageCheckpoint(ctx context.Context, srv *appServer, input exte
 	if response.Thread.Path == nil {
 		return errors.New("codex thread has no persisted rollout path")
 	}
-	if err := d.stageRollout(ctx, srv.client, input, nativeID, *response.Thread.Path, turnID); err != nil {
+	fs, err := checkpointFSFor(srv.client)
+	if err != nil {
+		return err
+	}
+	if err := d.stageRollout(ctx, fs, input, nativeID, *response.Thread.Path, turnID); err != nil {
 		return err
 	}
 	srv.rememberCheckpoint(input.ThreadID, checkpointHandle{RunID: input.RunID, NativeID: nativeID, Path: *response.Thread.Path})
