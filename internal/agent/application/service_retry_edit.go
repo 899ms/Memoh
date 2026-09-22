@@ -175,10 +175,12 @@ func (s *Service) prepareRetryLatestTurnOperation(ctx context.Context, sessionID
 	}
 	// The turn's own assistant anchor, not a message the client named: a turn
 	// that reached the client without one is a history the server cannot cut.
+	// The request message is still there, so the client may edit instead.
 	replaceFromMessageID := strings.TrimSpace(turn.AssistantMessageID)
 	if replaceFromMessageID == "" {
-		return messagepkg.HistoryTurn{}, "", apperror.New(
-			apperror.CodeSessionHistoryInconsistent,
+		return messagepkg.HistoryTurn{}, "", apperror.Wrap(
+			apperror.CodeSessionTurnIncomplete,
+			fmt.Errorf("turn %s has no assistant anchor", turn.ID),
 			nil,
 		)
 	}
@@ -267,14 +269,15 @@ func (s *Service) resolveLatestVisibleTurn(ctx context.Context, sessionID, turnI
 		// A session with no visible turn at all and a session whose latest turn
 		// is a different one are the same answer to the client: the round it
 		// named is not the one the server can replace, so it has to reload.
-		// Both are reported with that code instead of the store's own wording.
+		// Both are stale-client conflicts, not history faults, and are reported
+		// with the 409 code instead of the store's own wording.
 		if errors.Is(err, messagepkg.ErrNoVisibleTurn) {
-			return messagepkg.HistoryTurn{}, apperror.Wrap(apperror.CodeSessionHistoryInconsistent, err, nil)
+			return messagepkg.HistoryTurn{}, apperror.Wrap(apperror.CodeSessionTurnNotLatest, err, nil)
 		}
 		return messagepkg.HistoryTurn{}, fmt.Errorf("load latest visible turn: %w", err)
 	}
 	if strings.TrimSpace(latest.ID) != turnID {
-		return messagepkg.HistoryTurn{}, apperror.Wrap(apperror.CodeSessionHistoryInconsistent, errors.New(notLatest), nil)
+		return messagepkg.HistoryTurn{}, apperror.Wrap(apperror.CodeSessionTurnNotLatest, errors.New(notLatest), nil)
 	}
 	return latest, nil
 }
